@@ -225,6 +225,160 @@ class TestExcelExporter:
             for name in xl.sheet_names:
                 assert len(name) <= 31
 
+    def test_get_sheet_names(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "Sheet1")
+        exporter.add_sheet([{"b": 2}], "Sheet2")
+        exporter.add_sheet([{"c": 3}], "Sheet3")
+        assert exporter.get_sheet_names() == ["Sheet1", "Sheet2", "Sheet3"]
+
+    def test_swap_sheets_by_index(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "Sheet1")
+        exporter.add_sheet([{"b": 2}], "Sheet2")
+        exporter.add_sheet([{"c": 3}], "Sheet3")
+
+        exporter.swap_sheets(0, 2)
+        assert exporter.get_sheet_names() == ["Sheet3", "Sheet2", "Sheet1"]
+
+        result = exporter.export()
+        with pd.ExcelFile(result) as xl:
+            assert xl.sheet_names == ["Sheet3", "Sheet2", "Sheet1"]
+
+    def test_swap_sheets_by_name(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "用户")
+        exporter.add_sheet([{"b": 2}], "订单")
+        exporter.add_sheet([{"c": 3}], "产品")
+
+        exporter.swap_sheets("用户", "产品")
+        assert exporter.get_sheet_names() == ["产品", "订单", "用户"]
+
+    def test_swap_sheets_same_no_change(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "Sheet1")
+        exporter.add_sheet([{"b": 2}], "Sheet2")
+
+        exporter.swap_sheets(0, 0)
+        assert exporter.get_sheet_names() == ["Sheet1", "Sheet2"]
+
+    def test_move_sheet_forward_by_index(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "A")
+        exporter.add_sheet([{"b": 2}], "B")
+        exporter.add_sheet([{"c": 3}], "C")
+        exporter.add_sheet([{"d": 4}], "D")
+
+        exporter.move_sheet(3, 0)
+        assert exporter.get_sheet_names() == ["D", "A", "B", "C"]
+
+    def test_move_sheet_backward_by_index(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "A")
+        exporter.add_sheet([{"b": 2}], "B")
+        exporter.add_sheet([{"c": 3}], "C")
+        exporter.add_sheet([{"d": 4}], "D")
+
+        exporter.move_sheet(0, 3)
+        assert exporter.get_sheet_names() == ["B", "C", "D", "A"]
+
+    def test_move_sheet_by_name(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "用户")
+        exporter.add_sheet([{"b": 2}], "订单")
+        exporter.add_sheet([{"c": 3}], "产品")
+
+        exporter.move_sheet("订单", 0)
+        assert exporter.get_sheet_names() == ["订单", "用户", "产品"]
+
+    def test_move_sheet_same_position_no_change(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "A")
+        exporter.add_sheet([{"b": 2}], "B")
+
+        exporter.move_sheet(0, 0)
+        assert exporter.get_sheet_names() == ["A", "B"]
+
+    def test_reorder_sheets_by_index(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "A")
+        exporter.add_sheet([{"b": 2}], "B")
+        exporter.add_sheet([{"c": 3}], "C")
+        exporter.add_sheet([{"d": 4}], "D")
+
+        exporter.reorder_sheets([3, 1, 2, 0])
+        assert exporter.get_sheet_names() == ["D", "B", "C", "A"]
+
+        result = exporter.export()
+        with pd.ExcelFile(result) as xl:
+            assert xl.sheet_names == ["D", "B", "C", "A"]
+
+    def test_reorder_sheets_by_name(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "用户")
+        exporter.add_sheet([{"b": 2}], "订单")
+        exporter.add_sheet([{"c": 3}], "产品")
+
+        exporter.reorder_sheets(["产品", "用户", "订单"])
+        assert exporter.get_sheet_names() == ["产品", "用户", "订单"]
+
+    def test_reorder_sheets_mixed_index_and_name(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "A")
+        exporter.add_sheet([{"b": 2}], "B")
+        exporter.add_sheet([{"c": 3}], "C")
+
+        exporter.reorder_sheets([2, "A", 1])
+        assert exporter.get_sheet_names() == ["C", "A", "B"]
+
+    def test_reorder_sheets_wrong_length_raises_error(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "A")
+        exporter.add_sheet([{"b": 2}], "B")
+        exporter.add_sheet([{"c": 3}], "C")
+
+        with pytest.raises(ValueError, match="must match number of sheets"):
+            exporter.reorder_sheets([0, 1])
+
+    def test_reorder_sheets_duplicates_raises_error(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "A")
+        exporter.add_sheet([{"b": 2}], "B")
+        exporter.add_sheet([{"c": 3}], "C")
+
+        with pytest.raises(ValueError, match="Duplicate sheet references"):
+            exporter.reorder_sheets([0, 0, 1])
+
+    def test_get_sheet_index_invalid_name_raises_error(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "Sheet1")
+
+        with pytest.raises(ValueError, match="not found"):
+            exporter._get_sheet_index("NotExist")
+
+    def test_get_sheet_index_out_of_range_raises_error(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "Sheet1")
+
+        with pytest.raises(IndexError, match="out of range"):
+            exporter._get_sheet_index(5)
+
+    def test_complex_reorder_scenario(self):
+        exporter = ExcelExporter(self.test_file)
+        for i in range(6):
+            exporter.add_sheet([{"data": i}], f"Sheet{i}")
+
+        assert exporter.get_sheet_names() == ["Sheet0", "Sheet1", "Sheet2", "Sheet3", "Sheet4", "Sheet5"]
+
+        exporter.swap_sheets(0, 5)
+        exporter.move_sheet("Sheet2", 0)
+        exporter.reorder_sheets([5, 4, 3, 2, 1, 0])
+
+        result = exporter.export()
+        assert os.path.exists(result)
+        with pd.ExcelFile(result) as xl:
+            assert xl.sheet_names == exporter.get_sheet_names()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

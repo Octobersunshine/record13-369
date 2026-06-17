@@ -58,6 +58,58 @@ class ExcelExporter:
         }
         self.sheets.append(sheet_config)
 
+    def _get_sheet_index(self, identifier: Union[str, int]) -> int:
+        if isinstance(identifier, int):
+            if identifier < 0 or identifier >= len(self.sheets):
+                raise IndexError(f"Sheet index {identifier} out of range")
+            return identifier
+        elif isinstance(identifier, str):
+            for i, sheet in enumerate(self.sheets):
+                if sheet["name"] == identifier:
+                    return i
+            raise ValueError(f"Sheet '{identifier}' not found")
+        else:
+            raise TypeError("Sheet identifier must be str (name) or int (index)")
+
+    def reorder_sheets(self, new_order: List[Union[str, int]]) -> None:
+        if len(new_order) != len(self.sheets):
+            raise ValueError(
+                f"New order length ({len(new_order)}) must match number of sheets ({len(self.sheets)})"
+            )
+
+        indices = [self._get_sheet_index(item) for item in new_order]
+
+        if len(set(indices)) != len(indices):
+            raise ValueError("Duplicate sheet references in new order")
+
+        self.sheets = [self.sheets[i] for i in indices]
+
+    def move_sheet(self, source: Union[str, int], target: int) -> None:
+        if not isinstance(target, int):
+            raise TypeError("Target position must be an integer")
+        if target < 0 or target >= len(self.sheets):
+            raise IndexError(f"Target index {target} out of range")
+
+        source_idx = self._get_sheet_index(source)
+
+        if source_idx == target:
+            return
+
+        sheet = self.sheets.pop(source_idx)
+        self.sheets.insert(target, sheet)
+
+    def swap_sheets(self, sheet1: Union[str, int], sheet2: Union[str, int]) -> None:
+        idx1 = self._get_sheet_index(sheet1)
+        idx2 = self._get_sheet_index(sheet2)
+
+        if idx1 == idx2:
+            return
+
+        self.sheets[idx1], self.sheets[idx2] = self.sheets[idx2], self.sheets[idx1]
+
+    def get_sheet_names(self) -> List[str]:
+        return [sheet["name"] for sheet in self.sheets]
+
     def export(self) -> str:
         if not self.sheets:
             raise ValueError("No sheets to export. Add sheets first using add_sheet().")

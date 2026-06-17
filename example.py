@@ -105,6 +105,41 @@ def example_sheet_name_edge_cases():
     print(f"Excel 文件已导出至: {file_path}")
 
 
+def example_sheet_reordering():
+    print("\n=== 示例 5: Sheet 顺序调整功能 ===")
+
+    exporter = ExcelExporter("output/reorder_example.xlsx")
+
+    exporter.add_sheet([{"id": 1, "name": "张三"}], "用户信息")
+    exporter.add_sheet([{"订单号": "ORD001", "金额": 199}], "订单数据")
+    exporter.add_sheet([{"产品ID": 101, "名称": "笔记本"}], "产品列表")
+    exporter.add_sheet([{"月份": "1月", "销售额": 120}], "销售汇总")
+    exporter.add_sheet([{"仓库": "北京仓", "库存": 5000}], "库存统计")
+
+    print("初始顺序:", exporter.get_sheet_names())
+
+    exporter.swap_sheets("用户信息", "销售汇总")
+    print("交换'用户信息'和'销售汇总'后:", exporter.get_sheet_names())
+
+    exporter.move_sheet(4, 0)
+    print("将索引4的Sheet移到最前:", exporter.get_sheet_names())
+
+    exporter.move_sheet("订单数据", 4)
+    print("将'订单数据'移到最后:", exporter.get_sheet_names())
+
+    exporter.reorder_sheets([0, 1, "产品列表", 3, "订单数据"])
+    print("重新排列顺序后:", exporter.get_sheet_names())
+
+    file_path = exporter.export()
+    print(f"Excel 文件已导出至: {file_path}")
+
+    print("\n最终 Excel 中的 Sheet 顺序:")
+    xl = pd.ExcelFile(file_path)
+    for i, name in enumerate(xl.sheet_names, 1):
+        print(f"  {i}. {name}")
+    xl.close()
+
+
 if __name__ == "__main__":
     import os
     os.makedirs("output", exist_ok=True)
@@ -113,5 +148,6 @@ if __name__ == "__main__":
     example_using_function()
     example_custom_options()
     example_sheet_name_edge_cases()
+    example_sheet_reordering()
 
     print("\n✅ 所有示例执行完成！")
