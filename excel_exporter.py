@@ -6,9 +6,36 @@ import os
 
 
 class ExcelExporter:
+    MAX_SHEET_NAME_LENGTH = 31
+    INVALID_SHEET_CHARS = ["\\", "/", "*", "?", ":", "[", "]"]
+
     def __init__(self, file_path: str):
         self.file_path = file_path
         self.sheets: List[Dict[str, Any]] = []
+        self._used_names: set = set()
+
+    def _sanitize_sheet_name(self, name: str) -> str:
+        if not name or not isinstance(name, str):
+            name = "Sheet"
+
+        for char in self.INVALID_SHEET_CHARS:
+            name = name.replace(char, "_")
+
+        if len(name) > self.MAX_SHEET_NAME_LENGTH:
+            name = name[: self.MAX_SHEET_NAME_LENGTH]
+
+        original_name = name
+        counter = 1
+        while name in self._used_names:
+            suffix = f"_{counter}"
+            if len(original_name) + len(suffix) > self.MAX_SHEET_NAME_LENGTH:
+                name = original_name[: self.MAX_SHEET_NAME_LENGTH - len(suffix)] + suffix
+            else:
+                name = original_name + suffix
+            counter += 1
+
+        self._used_names.add(name)
+        return name
 
     def add_sheet(self, data: Union[pd.DataFrame, List[Dict], Dict], sheet_name: str, **kwargs) -> None:
         if isinstance(data, pd.DataFrame):
@@ -20,8 +47,10 @@ class ExcelExporter:
         else:
             raise ValueError("data must be a DataFrame, list of dicts, or dict")
 
+        safe_name = self._sanitize_sheet_name(sheet_name)
+
         sheet_config = {
-            "name": sheet_name,
+            "name": safe_name,
             "data": df,
             "header_style": kwargs.get("header_style", True),
             "auto_width": kwargs.get("auto_width", True),

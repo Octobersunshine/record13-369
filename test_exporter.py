@@ -139,6 +139,92 @@ class TestExcelExporter:
         assert df_read.iloc[1]["age"] == 32
         assert list(df_read["id"]) == [1, 2, 3]
 
+    def test_sheet_name_longer_than_31_chars_truncated(self):
+        exporter = ExcelExporter(self.test_file)
+        long_name = "这是一个非常非常非常非常非常非常非常长的Sheet名称超过31个字符"
+        exporter.add_sheet([{"a": 1}], long_name)
+        assert len(exporter.sheets[0]["name"]) <= 31
+        result = exporter.export()
+        assert os.path.exists(result)
+        with pd.ExcelFile(result) as xl:
+            assert len(xl.sheet_names[0]) <= 31
+
+    def test_sheet_name_with_invalid_chars_replaced(self):
+        exporter = ExcelExporter(self.test_file)
+        bad_name = "Sheet/测试\\名称*含有?非法:字符[测试]"
+        exporter.add_sheet([{"a": 1}], bad_name)
+        sheet_name = exporter.sheets[0]["name"]
+        for char in ["\\", "/", "*", "?", ":", "[", "]"]:
+            assert char not in sheet_name
+        result = exporter.export()
+        assert os.path.exists(result)
+
+    def test_duplicate_sheet_names_get_suffix(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "同名Sheet")
+        exporter.add_sheet([{"b": 2}], "同名Sheet")
+        exporter.add_sheet([{"c": 3}], "同名Sheet")
+
+        assert exporter.sheets[0]["name"] == "同名Sheet"
+        assert exporter.sheets[1]["name"] == "同名Sheet_1"
+        assert exporter.sheets[2]["name"] == "同名Sheet_2"
+
+        result = exporter.export()
+        assert os.path.exists(result)
+        with pd.ExcelFile(result) as xl:
+            assert xl.sheet_names == ["同名Sheet", "同名Sheet_1", "同名Sheet_2"]
+
+    def test_long_duplicate_sheet_names_truncated_with_suffix(self):
+        exporter = ExcelExporter(self.test_file)
+        long_name = "ABCDEFGHIJKLMNOPQRSTUVWXYZ12345"
+        exporter.add_sheet([{"a": 1}], long_name)
+        exporter.add_sheet([{"b": 2}], long_name)
+
+        name1 = exporter.sheets[0]["name"]
+        name2 = exporter.sheets[1]["name"]
+
+        assert len(name1) <= 31
+        assert len(name2) <= 31
+        assert name1 != name2
+        assert name2.endswith("_1")
+
+        result = exporter.export()
+        assert os.path.exists(result)
+
+    def test_empty_sheet_name_defaults(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "")
+        assert exporter.sheets[0]["name"] == "Sheet"
+
+    def test_none_sheet_name_defaults(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], None)
+        assert exporter.sheets[0]["name"] == "Sheet"
+
+    def test_export_with_all_edge_cases_together(self):
+        exporter = ExcelExporter(self.test_file)
+        exporter.add_sheet([{"a": 1}], "正常名称")
+        exporter.add_sheet([{"b": 2}], "名称/含*非法?字符")
+        long_name = "这是一个超级超级超级超级超级超级长的名字"
+        exporter.add_sheet([{"c": 3}], long_name)
+        exporter.add_sheet([{"d": 4}], "正常名称")
+        exporter.add_sheet([{"e": 5}], "正常名称")
+
+        for sheet in exporter.sheets:
+            assert len(sheet["name"]) <= 31
+            for char in ["\\", "/", "*", "?", ":", "[", "]"]:
+                assert char not in sheet["name"]
+
+        names = [s["name"] for s in exporter.sheets]
+        assert len(names) == len(set(names))
+
+        result = exporter.export()
+        assert os.path.exists(result)
+        with pd.ExcelFile(result) as xl:
+            assert len(xl.sheet_names) == 5
+            for name in xl.sheet_names:
+                assert len(name) <= 31
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

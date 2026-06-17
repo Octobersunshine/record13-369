@@ -79,6 +79,32 @@ def example_custom_options():
     print(f"Excel 文件已导出至: {file_path}")
 
 
+def example_sheet_name_edge_cases():
+    print("\n=== 示例 4: Sheet 名称边界情况处理 ===")
+
+    exporter = ExcelExporter("output/edge_cases_example.xlsx")
+
+    long_name = "这是一个非常非常非常非常非常非常非常长的Sheet名称超过31个字符"
+    exporter.add_sheet([{"数据": "长名称测试"}], long_name)
+
+    bad_chars_name = "销售/报告\\2024*汇总?表:Q1[机密]"
+    exporter.add_sheet([{"数据": "非法字符测试"}], bad_chars_name)
+
+    exporter.add_sheet([{"数据": 1}], "月度报表")
+    exporter.add_sheet([{"数据": 2}], "月度报表")
+    exporter.add_sheet([{"数据": 3}], "月度报表")
+
+    exporter.add_sheet([{"数据": 4}], "")
+    exporter.add_sheet([{"数据": 5}], None)
+
+    print("Sheet 名称处理结果:")
+    for i, sheet in enumerate(exporter.sheets, 1):
+        print(f"  Sheet {i}: '{sheet['name']}' (长度={len(sheet['name'])})")
+
+    file_path = exporter.export()
+    print(f"Excel 文件已导出至: {file_path}")
+
+
 if __name__ == "__main__":
     import os
     os.makedirs("output", exist_ok=True)
@@ -86,5 +112,6 @@ if __name__ == "__main__":
     example_using_class()
     example_using_function()
     example_custom_options()
+    example_sheet_name_edge_cases()
 
     print("\n✅ 所有示例执行完成！")
